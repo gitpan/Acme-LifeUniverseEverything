@@ -1,5 +1,5 @@
 package Acme::LifeUniverseEverything;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use strict;
 use overload;
@@ -17,8 +17,8 @@ $ops{'*'} = sub {
 for (qw( + - / % ** & | ^ )) {
     $ops{$_} = eval qq! sub { 
         Acme::LifeUniverseEverything->new(
-            \$_[2] ? (\$_[1] $_ "\$_[0]")
-                   : ("\$_[0]" $_ \$_[1])
+            \$_[2] ? ((0+\$_[1]) $_ "\$_[0]")
+                   : ("\$_[0]" $_ (0+\$_[1]))
         );
     } !;
 #    $ops{$_ . '='} = eval qq! sub {
@@ -26,7 +26,7 @@ for (qw( + - / % ** & | ^ )) {
 #    } !;
 }
 
-$ops{neg} = sub { 0 - (+$_[0]) };
+$ops{neg} = sub { Acme::LifeUniverseEverything->new( 0-("$_[0]") ); };
 
 $ops{$_} = eval qq ! sub { 
     \$_[2] ? (\$_[1] $_ "\$_[0]")
@@ -34,7 +34,9 @@ $ops{$_} = eval qq ! sub {
 } ! for qw( <=> ); # << >> !< <= > >= == != <=> );
 
 $ops{$_} = eval qq ! sub { $_("\$_[0]"); } !
-    for qw( ~ ! cos sin exp abs log sqrt );
+    for qw( ~ ! cos sin exp log sqrt );
+
+$ops{abs} = sub { Acme::LifeUniverseEverything->new( abs("$_[0]") ); };
 
 # $ops{atan2} = sub { $_[2] ? atan2($_[1], "$_[0]") : atan2("$_[0]", $_[1]) };
 
@@ -42,7 +44,8 @@ $ops{$_} = eval qq ! sub { $_("\$_[0]"); } !
 sub import {
     overload->import(%ops);
     overload::constant
-        integer => sub { Acme::LifeUniverseEverything->new(shift); };
+        integer => sub { Acme::LifeUniverseEverything->new(shift) },
+        binary  => sub { Acme::LifeUniverseEverything->new(shift) };
 }
 
 sub new {
@@ -86,16 +89,11 @@ limitations of C<overload>, the following operations can't be altered:
     ## Nope, uses string --> number cast
     print "6" * "9", "\n";
 
-    ## Nope, uses smart ++ on undef
+    ## Nope, uses smart ++ on undef, no visible int constants affecting
+    ## values of $six, $nine
     my($six, $nine);
     $six++ for (1 .. 6); $nine++ for (1..9);
     print $six * $nine, "\n";
-
-    ## Nope, this boggles my mind but 0 isn't caught by 
-    ## overload::constant integer
-    my $x = 0;
-    $x++ for (1 .. 6); ## $x += 6 would have been ok
-    print $x * 9, "\n";
 
     ## Nope, internal limitation of overload
     print eval("6*9"), "\n";
